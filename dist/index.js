@@ -262,14 +262,18 @@ app.get("/create_event", (req, res) => __async(exports, null, function* () {
 app.get("/verify_collection/:nft_mint_address", (req, res) => __async(exports, null, function* () {
   if (collectNFT != void 0) {
     const nft_mint_address = req.params.nft_mint_address;
-    const collectionVerificationForNFT = yield metaplex.nfts().verifyCollection({
-      mintAddress: new Web3.PublicKey(nft_mint_address),
-      collectionMintAddress: collectNFT.mintAddress,
-      collectionAuthority: collectionAuthorityKey
-    });
+    try {
+      const collectionVerificationForNFT = yield metaplex.nfts().verifyCollection({
+        mintAddress: new Web3.PublicKey(nft_mint_address),
+        collectionMintAddress: collectNFT.mintAddress,
+        collectionAuthority: collectionAuthorityKey
+      });
+    } catch (e) {
+      res.status(501).send("Error during process");
+    }
     res.send('NFT "' + nft_mint_address.toString() + '": verified');
   } else {
-    res.status(404).send("Call /create_event before getting /verify_collection");
+    res.status(404).send("Call /create_nft before getting /verify_collection");
   }
 }));
 app.get("/create_nft", (req, res) => __async(exports, null, function* () {
@@ -322,70 +326,84 @@ app.get("/create_nft", (req, res) => __async(exports, null, function* () {
       TOKEN_METADATA_PROGRAM_ID
     ))[0];
   });
-  const mintKey = Web3.Keypair.generate();
-  const NftTokenAccount = yield (0, import_spl_token.getAssociatedTokenAddress)(
-    mintKey.publicKey,
-    endUser.publicKey
-  );
-  console.log("NFT Account: ", NftTokenAccount.toBase58());
-  const mint_tx = new Web3.Transaction().add(
-    Web3.SystemProgram.createAccount({
-      fromPubkey: endUser.publicKey,
-      newAccountPubkey: mintKey.publicKey,
-      space: import_spl_token.MINT_SIZE,
-      programId: import_spl_token.TOKEN_PROGRAM_ID,
-      lamports
-    }),
-    (0, import_spl_token.createInitializeMintInstruction)(
-      mintKey.publicKey,
-      0,
-      endUser.publicKey,
-      endUser.publicKey
-    ),
-    (0, import_spl_token.createAssociatedTokenAccountInstruction)(
-      endUser.publicKey,
-      NftTokenAccount,
-      endUser.publicKey,
-      mintKey.publicKey
-    )
-  );
-  const tx_result = yield connection.sendTransaction(mint_tx, [endUser, mintKey]);
-  console.log("Confirm transaction: ", yield connection.confirmTransaction(tx_result));
-  console.log(
-    yield connection.getParsedAccountInfo(mintKey.publicKey)
-  );
-  console.log(
-    yield connection.getParsedAccountInfo(NftTokenAccount)
-  );
-  console.log("NFT Account: ", tx_result);
-  const metadataAddress = yield getMetadata(mintKey.publicKey);
-  const masterEdition = yield getMasterEdition(mintKey.publicKey);
-  const authorityRecord = yield getUseAuthority(mintKey.publicKey, verifierPubKey);
-  const burnerAddress = yield getBurner();
-  let program = new import_anchor.Program(IDL, ticketcoinSolanaProgram, new import_anchor.AnchorProvider(connection, new import_anchor.Wallet(endUser), {}));
-  const tx = yield program.methods.mintNft(
-    mintKey.publicKey,
-    "https://github.com/zigtur",
-    "Zigtur Collection"
-  ).accounts(
-    {
-      mintAuthority: endUser.publicKey,
-      collection: collectNftPubKey,
-      mint: mintKey.publicKey,
-      tokenAccount: NftTokenAccount,
-      tokenProgram: import_spl_token.TOKEN_PROGRAM_ID,
-      metadata: metadataAddress,
-      tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-      payer: endUser.publicKey,
-      systemProgram: Web3.SystemProgram.programId,
-      rent: Web3.SYSVAR_RENT_PUBKEY,
-      masterEdition,
-      useAuthorityRecord: authorityRecord,
-      verifier: verifierPubKey,
-      burner: burnerAddress
+  if (collectNFT != void 0) {
+    try {
+      const mintKey = Web3.Keypair.generate();
+      const NftTokenAccount = yield (0, import_spl_token.getAssociatedTokenAddress)(
+        mintKey.publicKey,
+        endUser.publicKey
+      );
+      console.log("NFT Account: ", NftTokenAccount.toBase58());
+      const mint_tx = new Web3.Transaction().add(
+        Web3.SystemProgram.createAccount({
+          fromPubkey: endUser.publicKey,
+          newAccountPubkey: mintKey.publicKey,
+          space: import_spl_token.MINT_SIZE,
+          programId: import_spl_token.TOKEN_PROGRAM_ID,
+          lamports
+        }),
+        (0, import_spl_token.createInitializeMintInstruction)(
+          mintKey.publicKey,
+          0,
+          endUser.publicKey,
+          endUser.publicKey
+        ),
+        (0, import_spl_token.createAssociatedTokenAccountInstruction)(
+          endUser.publicKey,
+          NftTokenAccount,
+          endUser.publicKey,
+          mintKey.publicKey
+        )
+      );
+      const tx_result = yield connection.sendTransaction(mint_tx, [endUser, mintKey]);
+      console.log("Confirm transaction: ", yield connection.confirmTransaction(tx_result));
+      console.log(
+        yield connection.getParsedAccountInfo(mintKey.publicKey)
+      );
+      console.log(
+        yield connection.getParsedAccountInfo(NftTokenAccount)
+      );
+      console.log("NFT Account: ", tx_result);
+      const metadataAddress = yield getMetadata(mintKey.publicKey);
+      const masterEdition = yield getMasterEdition(mintKey.publicKey);
+      const authorityRecord = yield getUseAuthority(mintKey.publicKey, verifierPubKey);
+      const burnerAddress = yield getBurner();
+      let program = new import_anchor.Program(IDL, ticketcoinSolanaProgram, new import_anchor.AnchorProvider(connection, new import_anchor.Wallet(endUser), {}));
+      const tx = yield program.methods.mintNft(
+        mintKey.publicKey,
+        "https://github.com/zigtur",
+        "Zigtur Collection"
+      ).accounts(
+        {
+          mintAuthority: endUser.publicKey,
+          collection: collectNftPubKey,
+          mint: mintKey.publicKey,
+          tokenAccount: NftTokenAccount,
+          tokenProgram: import_spl_token.TOKEN_PROGRAM_ID,
+          metadata: metadataAddress,
+          tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
+          payer: endUser.publicKey,
+          systemProgram: Web3.SystemProgram.programId,
+          rent: Web3.SYSVAR_RENT_PUBKEY,
+          masterEdition,
+          useAuthorityRecord: authorityRecord,
+          verifier: verifierPubKey,
+          burner: burnerAddress
+        }
+      ).rpc();
+      res.send("Mint Key: " + mintKey.publicKey.toString());
+    } catch (e) {
+      res.status(501).send("Error during process");
     }
-  ).rpc();
-  res.send("Mint Key: " + mintKey.publicKey.toString());
+  } else {
+    res.status(404).send("Call /create_event before calling /create_nft");
+  }
+}));
+app.get("/verify_nft/:nft_mint_address", (req, res) => __async(exports, null, function* () {
+  if (collectNFT != void 0) {
+  } else {
+    res.status(404).send("Call /create_nft before getting /verify_collection");
+  }
 }));
 app.all("*", (req, res) => {
   res.status(404).send("Not found");

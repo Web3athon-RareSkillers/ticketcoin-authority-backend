@@ -25,6 +25,7 @@ Then, use your browser to call:
 ```
 Step1: http://IP:8000/create_event
 Step2: http://IP:8000/create_nft
+    - This will return the mint_key
 Step3: http://IP:8000/verify_collection/mint_key
 Step4: http://IP:8000/verify_nft/mint_key
 ```
