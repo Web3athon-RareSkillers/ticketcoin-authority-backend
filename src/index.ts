@@ -56,6 +56,8 @@ app.get('/infos', (req, res) => {
     
 });
 
+
+// STEP 1 in WORKFLOW, TICKETCOIN TEAM IS THE ACTOR 
 app.get('/create_event', async(req,res) => {
     await collectNFTlock.acquire()
     try{
@@ -84,6 +86,7 @@ app.get('/create_event', async(req,res) => {
     
 });
 
+// STEP 3 in WORKFLOW, TICKETCOIN TEAM IS THE ACTOR 
 app.get('/verify_collection/:nft_mint_address', async(req,res) => {
     if (collectNFT != undefined) {
         const nft_mint_address = req.params.nft_mint_address;
@@ -109,6 +112,7 @@ app.get('/verify_collection/:nft_mint_address', async(req,res) => {
 //// FOR TEST PURPOSES ONLY
 //// THIS WILL BE DONE IN USER APP
 //// REPLACE EndUser WALLET WITH REAL USER WALLET (Phantom)
+// STEP 2 in WORKFLOW, END USER IS THE ACTOR 
 app.get('/create_nft', async(req, res) => {
     const TOKEN_METADATA_PROGRAM_ID = new Web3.PublicKey(
         "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
@@ -278,6 +282,7 @@ app.get('/create_nft', async(req, res) => {
 });
 
 
+// STEP 4 in WORKFLOW, TICKETCOIN VERIFIER IS THE ACTOR 
 app.get('/verify_nft/:nft_mint_address', async(req,res) => {
     if (collectNFT != undefined) {
         // IN DEV
