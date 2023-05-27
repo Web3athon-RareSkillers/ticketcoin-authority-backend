@@ -1,0 +1,8 @@
+{
+  "name": "ticketcoin-authority",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:Web3athon-RareSkillers/ticketcoin-authority-backend.git",
+  "author": "zigtur <zigtur@protonmail.com>",
+  "license": "MIT"
+}
