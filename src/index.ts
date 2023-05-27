@@ -5,8 +5,8 @@ import express from 'express'
 import { keypairIdentity, Metaplex, SendAndConfirmTransactionResponse } from '@metaplex-foundation/js';
 import Semaphore from 'semaphore-async-await';
 import { TOKEN_PROGRAM_ID, createAssociatedTokenAccountInstruction, getAssociatedTokenAddress, createInitializeMintInstruction, MINT_SIZE, mintTo, mintToInstructionData, createMint } from '@solana/spl-token';
-import { Program, Wallet } from "@coral-xyz/anchor";
-import { TicketcoinContract } from "./ticketcoin_contract";
+import { AnchorProvider, Program, Wallet } from "@coral-xyz/anchor";
+import { TicketcoinContract, IDL } from "./ticketcoin_contract";
 
 
 /// IMPORTANT DATA
@@ -15,9 +15,9 @@ import { TicketcoinContract } from "./ticketcoin_contract";
 const collectionAuthorityKey: Web3.Keypair = Web3.Keypair.fromSecretKey(
     Uint8Array.from([100,218,28,88,90,31,202,200,105,72,96,24,31,246,50,57,151,60,149,141,43,223,167,143,28,2,94,104,234,179,102,114,145,1,117,91,193,118,183,70,160,142,139,28,243,129,103,12,62,181,184,220,153,179,13,231,90,58,192,49,154,207,241,139])
     );
-const connection = new Web3.Connection(Web3.clusterApiUrl('devnet'))
+const connection = new Web3.Connection(Web3.clusterApiUrl('devnet'), 'finalized')
 let collectNFT: { name?: any; nft: any; response?: SendAndConfirmTransactionResponse; mintAddress?: Web3.PublicKey; metadataAddress?: Web3.PublicKey; masterEditionAddress?: Web3.PublicKey; tokenAddress?: Web3.PublicKey; };
-let collectNftPubKey: string;
+let collectNftPubKey: Web3.PublicKey;
 const collectNFTlock = new Semaphore(1);
 
 
@@ -26,7 +26,10 @@ const ticketcoinSolanaProgram = new Web3.PublicKey("7CfS9hfXmqejz69Dx7kPhKxyNUwt
 
 const metaplex = new Metaplex(connection).use(keypairIdentity(collectionAuthorityKey));
 
-
+// END USER KEY, NEEDS TO BE REPLACED BY PHANTOM WALLET
+const endUser: Web3.Keypair = Web3.Keypair.fromSecretKey(Uint8Array.from(
+    [218,9,254,249,11,50,214,60,208,41,81,90,186,25,160,86,152,205,33,105,168,58,240,194,154,65,24,255,11,18,97,173,165,247,128,240,20,123,248,29,147,22,248,161,164,38,240,158,120,101,74,246,228,24,170,208,224,46,102,189,220,34,82,233]
+));
 
 
 const app = express()
@@ -99,8 +102,8 @@ app.get('/verify_collection/:nft_mint_address', async(req,res) => {
 
 //// FOR TEST PURPOSES ONLY
 //// THIS WILL BE DONE IN USER APP
-//// REPLACE collectionAuthorityKey WALLET WITH USER WALLET
-/*app.get('/create_nft', async(req, res) => {
+//// REPLACE EndUser WALLET WITH REAL USER WALLET (Phantom)
+app.get('/create_nft', async(req, res) => {
     const TOKEN_METADATA_PROGRAM_ID = new Web3.PublicKey(
         "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
       );
@@ -177,13 +180,13 @@ app.get('/verify_collection/:nft_mint_address', async(req,res) => {
     const mintKey: Web3.Keypair = Web3.Keypair.generate();
     const NftTokenAccount = await getAssociatedTokenAddress(
       mintKey.publicKey,
-      collectionAuthorityKey.publicKey
+      endUser.publicKey
     );
     console.log("NFT Account: ", NftTokenAccount.toBase58());
 
     const mint_tx = new Web3.Transaction().add(
       Web3.SystemProgram.createAccount({
-        fromPubkey: collectionAuthorityKey.publicKey,
+        fromPubkey: endUser.publicKey,
         newAccountPubkey: mintKey.publicKey,
         space: MINT_SIZE,
         programId: TOKEN_PROGRAM_ID,
@@ -192,21 +195,48 @@ app.get('/verify_collection/:nft_mint_address', async(req,res) => {
       createInitializeMintInstruction(
         mintKey.publicKey,
         0,
-        collectionAuthorityKey.publicKey,
-        collectionAuthorityKey.publicKey
+        endUser.publicKey,
+        endUser.publicKey
       ),
       createAssociatedTokenAccountInstruction(
-        collectionAuthorityKey.publicKey,
+        endUser.publicKey,
         NftTokenAccount,
-        collectionAuthorityKey.publicKey,
+        endUser.publicKey,
         mintKey.publicKey
       )
     );
 
-    const tx_result = await connection.sendTransaction(mint_tx, [mintKey]);
-    //console.log(
-    //  await program.provider.connection.getParsedAccountInfo(mintKey.publicKey)
-    //);
+    /*
+    async function createAndSendV0Tx(txInstructions: Web3.TransactionInstruction[]) {
+        let latestBlockhash = await connection.getLatestBlockhash('confirmed');
+        const messageV0 = new Web3.TransactionMessage({
+            payerKey: endUser.publicKey,
+            recentBlockhash: latestBlockhash.blockhash,
+            instructions: txInstructions
+        }).compileToV0Message();
+        
+        const transaction = new Web3.VersionedTransaction(messageV0);
+        transaction.sign([mintKey]);
+        const txid = await connection.sendTransaction(transaction, { maxRetries: 5 });
+        const confirmation = await connection.confirmTransaction({
+            signature: txid,
+            blockhash: latestBlockhash.blockhash,
+            lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+        })
+        return confirmation;
+    }*/
+
+    const tx_result = await connection.sendTransaction(mint_tx, [endUser, mintKey]);
+    console.log("Confirm transaction: ", await connection.confirmTransaction(tx_result));
+    console.log(
+      await connection.getParsedAccountInfo(mintKey.publicKey)
+    );
+
+    console.log(
+        await connection.getParsedAccountInfo(NftTokenAccount)
+      );
+
+    
 
     console.log("NFT Account: ", tx_result);
     //console.log("Mint key: ", mintKey.publicKey.toString());
@@ -223,8 +253,8 @@ app.get('/verify_collection/:nft_mint_address', async(req,res) => {
     //console.log("burner: ", burnerAddress.toBase58());
 
     
-
-    //let program = new Program.at(ticketcoinSolanaProgram); // TicketcoinContract as Program<TicketcoinContract>;
+    
+    let program = new Program(IDL, ticketcoinSolanaProgram, new AnchorProvider(connection, new Wallet(endUser), {})); // TicketcoinContract as Program<TicketcoinContract>;
 
     const tx = await program.methods.mintNft(
       mintKey.publicKey,
@@ -232,24 +262,26 @@ app.get('/verify_collection/:nft_mint_address', async(req,res) => {
       "Zigtur Collection",
     )
       .accounts({
-        mintAuthority: wallet.publicKey,
+        mintAuthority: endUser.publicKey,
         collection: collectNftPubKey,
         mint: mintKey.publicKey,
         tokenAccount: NftTokenAccount,
         tokenProgram: TOKEN_PROGRAM_ID,
         metadata: metadataAddress,
         tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID,
-        payer: wallet.publicKey,
-        systemProgram: SystemProgram.programId,
+        payer: endUser.publicKey,
+        systemProgram: Web3.SystemProgram.programId,
         rent: Web3.SYSVAR_RENT_PUBKEY,
         masterEdition: masterEdition,
         useAuthorityRecord: authorityRecord,
-        verifier: verifierKey.publicKey,
+        verifier: verifierPubKey,
         burner: burnerAddress,
       },
       )
       .rpc();
-});*/
+    res.send("Mint Key: "+ mintKey.publicKey.toString());
+    
+});
 
 
 /**

@@ -20,3 +20,12 @@ npm install
 npm run build
 npm start
 ```
+
+Then, use your browser to call:
+```
+Step1: http://IP:8000/create_event
+Step2: http://IP:8000/create_nft
+Step3: http://IP:8000/verify_collection/mint_key
+Step4: http://IP:8000/verify_nft/mint_key
+```
+
